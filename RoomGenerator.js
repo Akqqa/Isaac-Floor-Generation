@@ -293,18 +293,19 @@ export class Generator {
             if (a.depth !== b.depth) {
                 return a.depth - b.depth; // ascending depth
             }
-            return a.bossDistance - b.bossDistance // descending bossDistance
+            return b.bossDistance - a.bossDistance // descending bossDistance
         })
     }
 
     placeSpecialRooms() {
         // Now a valid layout has been generated and boss rooms placed, place rooms in dead ends
+        // SORT DEAD END ROOMS BY BOTH DEPTH AND MANHATTAN DISTANCE TO BOSS ROOM. should ensure shop is always closer to boss?
+        this.sortDeadEnds();
         let supersecret = this.deadEndQueue.pop();
         supersecret.type = "supersecret";
         supersecret.hidden = true;
         if (this.stage < 7) {
-            // SORT DEAD END ROOMS BY BOTH DEPTH AND MANHATTAN DISTANCE TO BOSS ROOM. should ensure shop is always closer to boss?
-            this.sortDeadEnds();
+            
             this.deadEndQueue.pop().type = "shop";
             this.deadEndQueue.pop().type = "item"
             if (this.labyrinth) {
