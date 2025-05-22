@@ -112,6 +112,7 @@ export class Generator {
         // Place starting room in queue, and add to grid:
         let startRoom = new Room(centerY,centerX);
         startRoom.type = "start";
+        startRoom.depth = 0;
         roomQueue.push(startRoom);
         this.map[centerY][centerX] = roomQueue[0];
         roomsRemaining -= 1;
@@ -166,6 +167,7 @@ export class Generator {
                 }
                 // Create room here
                 this.map[neighbour.posY][neighbour.posX] = neighbour;
+                neighbour.depth = currentRoom.depth + 1;
                 roomQueue.push(neighbour);
                 roomsRemaining -= 1;
                 roomCounter += 1;
@@ -225,9 +227,17 @@ export class Generator {
             if (this.deadEndQueue.length < this.minDeadEnds) {
                 continue;
             }
+            
+            console.log(this.deadEndQueue.length)
+            console.log("DEPTHS");
+            this.deadEndQueue.forEach(element => {
+                console.log(element.depth);
+            });
+            console.log("ENDDEPTHS");
 
             // Handle the boss room here, as if curse of labyrinth and no valid positions, must restart THIS IS COMPLEX LOL
             let bossroom = this.deadEndQueue.pop();
+            this.boss = bossroom; // global for sort dead ends
             bossroom.type = "boss";
             if (this.labyrinth) { // If labyrinth, try adding another boss room in a valid space next to the existing one
                 let bossNeighbours = this.generateNeighbours(bossroom);
@@ -271,12 +281,30 @@ export class Generator {
         
     }
 
+    // In order to attempt to make map gen feel more game accurate, tiebreaks same depth rooms by closeness to boss. This should make it feel more realistic to play vs the game which has same depth dead ends more rarely due to large rooms
+    sortDeadEnds() {
+        let boss = this.boss;
+        this.deadEndQueue.forEach(deadEnd => {
+            deadEnd.bossDistance = Math.abs(deadEnd.posX-boss.posX) + Math.abs(deadEnd.posY-boss.posY); // Manhattan dist between this dead end and boss
+        });
+
+        // Now sort deadEndQueue by depth low to high and bossDistance high to low
+        this.deadEndQueue.sort((a,b) => {
+            if (a.depth !== b.depth) {
+                return a.depth - b.depth; // ascending depth
+            }
+            return a.bossDistance - b.bossDistance // descending bossDistance
+        })
+    }
+
     placeSpecialRooms() {
         // Now a valid layout has been generated and boss rooms placed, place rooms in dead ends
         let supersecret = this.deadEndQueue.pop();
         supersecret.type = "supersecret";
         supersecret.hidden = true;
         if (this.stage < 7) {
+            // SORT DEAD END ROOMS BY BOTH DEPTH AND MANHATTAN DISTANCE TO BOSS ROOM. should ensure shop is always closer to boss?
+            this.sortDeadEnds();
             this.deadEndQueue.pop().type = "shop";
             this.deadEndQueue.pop().type = "item"
             if (this.labyrinth) {
@@ -287,6 +315,9 @@ export class Generator {
             for (let i = 0; i < 7; i++) {
                 this.deadEndQueue.pop().type = "boss";
             }
+        } else {
+            // If womb, dark room or chest, just shuffle the dead ends cause the logic makes no sense imo
+            this.deadEndQueue = shuffleArray(this.deadEndQueue);
         }
         // Planetarium
         if (this.deadEndQueue.length > 0) {
